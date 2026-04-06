@@ -367,7 +367,7 @@
         <svg class="arc-svg" viewBox="0 0 260 260">
           <circle cx="130" cy="130" r="118" fill="none" stroke="#E8E4DC" stroke-width="5"/>
           <circle cx="130" cy="130" r="118" fill="none" stroke="#D94F2B" stroke-width="5"
-            stroke-dasharray="741" stroke-dashoffset="520"
+            stroke-dasharray="741" stroke-dashoffset="741"
             stroke-linecap="round"
             transform="rotate(-90 130 130)"/>
         </svg>
@@ -429,7 +429,41 @@
 </div><!-- end app-container -->
 
 <script>
+  // ── Audio engine ──────────────────────────────────────────
+  const audio = new Audio();
   let isPlaying = false;
+  let currentTracks = [];
+  let currentTrackIndex = 0;
+
+  const arcCircle = document.querySelector('.arc-svg circle:last-child');
+  const timeSpans = document.querySelectorAll('.time-row span');
+  const ARC_LEN = 741;
+
+  function fmt(s) {
+    return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+  }
+
+  audio.addEventListener('timeupdate', () => {
+    if (!audio.duration) return;
+    const p = audio.currentTime / audio.duration;
+    arcCircle.setAttribute('stroke-dashoffset', ARC_LEN * (1 - p));
+    timeSpans[0].textContent = fmt(audio.currentTime);
+    timeSpans[1].textContent = fmt(audio.duration);
+  });
+
+  audio.addEventListener('ended', () => nextTrack());
+
+  function playTrackAt(idx) {
+    const track = currentTracks[idx];
+    if (!track) return;
+    currentTrackIndex = idx;
+    audio.src = track.preview;
+    audio.play();
+    isPlaying = true;
+    document.getElementById('vinyl-disc').classList.add('playing');
+    document.getElementById('play-icon').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    document.querySelectorAll('.track-item').forEach((t, i) => t.classList.toggle('active', i === idx));
+  }
 
   function switchScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -437,64 +471,34 @@
   }
 
   function togglePlay() {
+    if (!currentTracks.length) return;
     isPlaying = !isPlaying;
     const disc = document.getElementById('vinyl-disc');
     const icon = document.getElementById('play-icon');
     if (isPlaying) {
+      audio.play();
       disc.classList.add('playing');
       icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
     } else {
+      audio.pause();
       disc.classList.remove('playing');
       icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
     }
   }
 
   function setTrack(el, idx) {
-    document.querySelectorAll('.track-item').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    if (!isPlaying) togglePlay();
+    playTrackAt(idx);
   }
 
   function prevTrack() {
-    const items = document.querySelectorAll('.track-item');
-    let active = [...items].findIndex(t => t.classList.contains('active'));
-    if (active > 0) setTrack(items[active - 1], active - 1);
+    if (currentTrackIndex > 0) playTrackAt(currentTrackIndex - 1);
   }
   function nextTrack() {
-    const items = document.querySelectorAll('.track-item');
-    let active = [...items].findIndex(t => t.classList.contains('active'));
-    if (active < items.length - 1) setTrack(items[active + 1], active + 1);
+    if (currentTrackIndex < currentTracks.length - 1) playTrackAt(currentTrackIndex + 1);
   }
 
-  // Spotify
-  const SPOTIFY_CLIENT_ID = '5a57e63bfb244ec185d540a6e1e73d5d';
-  const SPOTIFY_CLIENT_SECRET = 'c2af85644a20404c83f4441e75578c7f';
-  const ZEMFIRA_ARTIST_ID = '6oO3QiWdVj5FZQwbdRtsRh';
-  let spotifyToken = null;
-
-  async function getSpotifyToken() {
-    const resp = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET)
-      },
-      body: 'grant_type=client_credentials'
-    });
-    const data = await resp.json();
-    spotifyToken = data.access_token;
-  }
-
-  async function loadAlbums() {
-    await getSpotifyToken();
-    const base = `https://api.spotify.com/v1/artists/${ZEMFIRA_ARTIST_ID}/albums?include_groups=album&limit=10`;
-    const headers = { Authorization: 'Bearer ' + spotifyToken };
-    const [p1, p2] = await Promise.all([
-      fetch(base + '&offset=0', { headers }).then(r => r.json()),
-      fetch(base + '&offset=10', { headers }).then(r => r.json()),
-    ]);
-    renderAlbums([...(p1.items || []), ...(p2.items || [])]);
-  }
+  // ── Deezer ───────────────────────────────────────────────
+  const DEEZER_ARTIST_ID = 4913467;
 
   const ALBUM_POSITIONS = [
     { x: 18,  y: 10,  size: 140 },
@@ -511,7 +515,9 @@
     { x: 330, y: 420, size: 75  },
   ];
 
-  function renderAlbums(albums) {
+  async function loadAlbums() {
+    const data = await fetch(`https://api.deezer.com/artist/${DEEZER_ARTIST_ID}/albums?limit=20`).then(r => r.json());
+    const albums = (data.data || []).filter(a => a.record_type === 'album');
     const canvas = document.getElementById('albums-canvas');
     canvas.innerHTML = '';
     albums.forEach((album, i) => {
@@ -520,8 +526,8 @@
       div.className = 'album-cover';
       div.style.cssText = `width:${pos.size}px;height:${pos.size}px;left:${pos.x}px;top:${pos.y}px;`;
       const img = document.createElement('img');
-      img.src = album.images[0]?.url || '';
-      img.alt = album.name;
+      img.src = album.cover_big || album.cover;
+      img.alt = album.title;
       div.appendChild(img);
       div.onclick = () => openAlbum(album);
       canvas.appendChild(div);
@@ -529,47 +535,40 @@
   }
 
   async function openAlbum(album) {
-    const resp = await fetch(
-      `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=50`,
-      { headers: { Authorization: 'Bearer ' + spotifyToken } }
-    );
-    const data = await resp.json();
+    const data = await fetch(`https://api.deezer.com/album/${album.id}/tracks`).then(r => r.json());
+    currentTracks = data.data || [];
 
-    // Update player header
-    document.querySelector('.player-title-block h1').textContent = album.name;
-    document.querySelector('.player-title-block p').textContent = album.release_date?.slice(0, 4) || '';
+    document.querySelector('.player-title-block h1').textContent = album.title;
+    document.querySelector('.player-title-block p').textContent = (album.release_date || '').slice(0, 4);
 
-    // Update vinyl art
     const art = document.querySelector('.vinyl-art');
-    art.style.backgroundImage = `url(${album.images[0]?.url})`;
+    art.style.backgroundImage = `url(${album.cover_big || album.cover})`;
     art.style.backgroundSize = 'cover';
     art.style.backgroundPosition = 'center';
 
-    // Populate tracklist
     const tracklist = document.getElementById('tracklist');
     tracklist.innerHTML = '';
-    data.items.forEach((track, i) => {
-      const mins = Math.floor(track.duration_ms / 60000);
-      const secs = String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0');
+    currentTracks.forEach((track, i) => {
       const div = document.createElement('div');
       div.className = 'track-item' + (i === 0 ? ' active' : '');
       div.onclick = function() { setTrack(this, i); };
       div.innerHTML = `
         <span class="track-num">${i + 1}.</span>
         <div class="track-info">
-          <div class="track-name">${track.name}</div>
-          <div class="track-artist">Zemfira</div>
+          <div class="track-name">${track.title}</div>
+          <div class="track-artist">Земфира</div>
         </div>
-        <span class="track-dur">${mins}:${secs}</span>`;
+        <span class="track-dur">${fmt(track.duration)}</span>`;
       tracklist.appendChild(div);
     });
 
     switchScreen('player');
+    playTrackAt(0);
   }
 
   loadAlbums();
 
-  // Touch/mouse swipe
+  // ── Swipe ─────────────────────────────────────────────────
   let startX = 0;
   const screens = ['player', 'analytics'];
   document.getElementById('app').addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
