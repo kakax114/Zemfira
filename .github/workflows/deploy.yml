@@ -1,0 +1,25 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject Spotify credentials
+        run: |
+          sed -i 's/__SPOTIFY_CLIENT_ID__/${{ secrets.SPOTIFY_CLIENT_ID }}/g' vinyl-app.html
+          sed -i 's/__SPOTIFY_CLIENT_SECRET__/${{ secrets.SPOTIFY_CLIENT_SECRET }}/g' vinyl-app.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./

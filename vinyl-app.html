@@ -467,8 +467,8 @@
   }
 
   // Spotify
-  const SPOTIFY_CLIENT_ID = '5a57e63bfb244ec185d540a6e1e73d5d';
-  const SPOTIFY_CLIENT_SECRET = 'c2af85644a20404c83f4441e75578c7f';
+  const SPOTIFY_CLIENT_ID = '__SPOTIFY_CLIENT_ID__';
+  const SPOTIFY_CLIENT_SECRET = '__SPOTIFY_CLIENT_SECRET__';
   const ZEMFIRA_ARTIST_ID = '6oO3QiWdVj5FZQwbdRtsRh';
   let spotifyToken = null;
 
@@ -487,12 +487,13 @@
 
   async function loadAlbums() {
     await getSpotifyToken();
-    const resp = await fetch(
-      `https://api.spotify.com/v1/artists/${ZEMFIRA_ARTIST_ID}/albums?include_groups=album&limit=50`,
-      { headers: { Authorization: 'Bearer ' + spotifyToken } }
-    );
-    const data = await resp.json();
-    renderAlbums(data.items);
+    const base = `https://api.spotify.com/v1/artists/${ZEMFIRA_ARTIST_ID}/albums?include_groups=album&limit=10`;
+    const headers = { Authorization: 'Bearer ' + spotifyToken };
+    const [p1, p2] = await Promise.all([
+      fetch(base + '&offset=0', { headers }).then(r => r.json()),
+      fetch(base + '&offset=10', { headers }).then(r => r.json()),
+    ]);
+    renderAlbums([...(p1.items || []), ...(p2.items || [])]);
   }
 
   const ALBUM_POSITIONS = [
