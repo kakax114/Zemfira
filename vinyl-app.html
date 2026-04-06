@@ -53,29 +53,6 @@
   }
   .screen.active { display: flex; }
 
-  /* === NAV DOTS === */
-  .nav-dots {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px;
-    position: absolute;
-    bottom: 20px;
-    left: 0; right: 0;
-    z-index: 100;
-  }
-  .nav-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: rgba(42,42,42,0.2);
-    cursor: pointer;
-    transition: all 0.3s;
-  }
-  .nav-dot.active {
-    background: var(--red);
-    width: 24px;
-    border-radius: 4px;
-  }
 
   /* ===================== */
   /* SCREEN 1 – PLAYER     */
@@ -421,10 +398,6 @@
       <!-- Populated by JS when an album is selected -->
     </div>
 
-    <div class="nav-dots">
-      <div class="nav-dot active" onclick="switchScreen('player')"></div>
-      <div class="nav-dot" onclick="switchScreen('analytics')"></div>
-    </div>
   </div>
 
   <!-- ============ SCREEN 2: ANALYTICS ============ -->
@@ -451,10 +424,6 @@
       </div>
     </div>
 
-    <div class="nav-dots">
-      <div class="nav-dot" onclick="switchScreen('player')"></div>
-      <div class="nav-dot active" onclick="switchScreen('analytics')"></div>
-    </div>
   </div>
 
 </div><!-- end app-container -->
@@ -465,14 +434,6 @@
   function switchScreen(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-' + name).classList.add('active');
-    // update all nav dot sets
-    document.querySelectorAll('.nav-dots').forEach(dotsEl => {
-      const dots = dotsEl.querySelectorAll('.nav-dot');
-      const names = ['player', 'analytics'];
-      dots.forEach((d, i) => {
-        d.classList.toggle('active', names[i] === name);
-      });
-    });
   }
 
   function togglePlay() {
