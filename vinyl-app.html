@@ -497,8 +497,19 @@
     if (currentTrackIndex < currentTracks.length - 1) playTrackAt(currentTrackIndex + 1);
   }
 
-  // ── Deezer ───────────────────────────────────────────────
+  // ── Deezer (JSONP — no CORS on their REST API) ───────────
   const DEEZER_ARTIST_ID = 4913467;
+
+  function deezerFetch(url) {
+    return new Promise((resolve, reject) => {
+      const cb = '_dz' + Date.now();
+      window[cb] = data => { delete window[cb]; script.remove(); resolve(data); };
+      const script = document.createElement('script');
+      script.src = url + (url.includes('?') ? '&' : '?') + 'output=jsonp&callback=' + cb;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
 
   const ALBUM_POSITIONS = [
     { x: 18,  y: 10,  size: 140 },
@@ -516,7 +527,7 @@
   ];
 
   async function loadAlbums() {
-    const data = await fetch(`https://api.deezer.com/artist/${DEEZER_ARTIST_ID}/albums?limit=20`).then(r => r.json());
+    const data = await deezerFetch(`https://api.deezer.com/artist/${DEEZER_ARTIST_ID}/albums?limit=20`);
     const albums = (data.data || []).filter(a => a.record_type === 'album');
     const canvas = document.getElementById('albums-canvas');
     canvas.innerHTML = '';
@@ -535,7 +546,7 @@
   }
 
   async function openAlbum(album) {
-    const data = await fetch(`https://api.deezer.com/album/${album.id}/tracks`).then(r => r.json());
+    const data = await deezerFetch(`https://api.deezer.com/album/${album.id}/tracks`);
     currentTracks = data.data || [];
 
     document.querySelector('.player-title-block h1').textContent = album.title;
